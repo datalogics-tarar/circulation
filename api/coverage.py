@@ -57,7 +57,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
         self.expect_license_pool=expect_license_pool
         self.presentation_ready_on_success=presentation_ready_on_success
         super(OPDSImportCoverageProvider, self).__init__(
-            service_name, input_identifier_types, output_source, batch_size=batch_size, 
+            service_name, input_identifier_types, output_source, batch_size=batch_size,
             **kwargs
         )
 
@@ -95,7 +95,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
                 )
         for identifier in leftover_identifiers:
             self.log.warn(
-                "OPDS import operation imported Edition for %r, but no LicensePool.", 
+                "OPDS import operation imported Edition for %r, but no LicensePool.",
                 identifier
             )
 
@@ -114,14 +114,14 @@ class OPDSImportCoverageProvider(CoverageProvider):
         """An OPDS entry has become a LicensePool. This method may (depending
         on configuration) create a Work for that book and mark it as
         presentation-ready.
-        """           
+        """
         # With a LicensePool and an Edition, there can be a Work.
         #
         # If the Work already exists, calculate_work() will at least
         # update the presentation.
         work, new_work = pool.calculate_work(
             even_if_no_author=True
-        )            
+        )
 
         if work and self.presentation_ready_on_success:
             work.set_presentation_ready()
@@ -151,7 +151,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
         content_type = response.headers.get('content-type')
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise BadResponseException.from_response(
-                response.url, 
+                response.url,
                 "Wrong media type: %s" % content_type,
                 response
             )
@@ -189,23 +189,24 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
 
 class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
-    """Make sure that the metadata wrangler has weighed in on all 
+    """Make sure that the metadata wrangler has weighed in on all
     identifiers that might be associated with a LicensePool.
     """
 
     SERVICE_NAME = "Metadata Wrangler Coverage Provider"
     OPERATION = CoverageRecord.SYNC_OPERATION
 
-    def __init__(self, _db, lookup=None, input_identifier_types=None, 
+    def __init__(self, _db, lookup=None, input_identifier_types=None,
                  operation=None, input_identifiers=None, **kwargs):
 
         if not input_identifier_types:
             input_identifier_types = [
-                Identifier.OVERDRIVE_ID, 
+                Identifier.OVERDRIVE_ID,
                 Identifier.THREEM_ID,
-                Identifier.GUTENBERG_ID, 
+                Identifier.GUTENBERG_ID,
                 Identifier.AXIS_360_ID,
-                Identifier.ONECLICK_ID, 
+                Identifier.ONECLICK_ID,
+                Identifier.ENKI_ID,
             ]
         output_source = DataSource.lookup(
             _db, DataSource.METADATA_WRANGLER
@@ -231,9 +232,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Returns items that are licensed and have not been covered.
 
-        :param identifiers: The batch of identifier objects to test for coverage. identifiers and 
-            self.input_identifiers can intersect -- if this provider was created for the 
-            purpose of running specific Identifiers, and within those Identifiers you want to 
+        :param identifiers: The batch of identifier objects to test for coverage. identifiers and
+            self.input_identifiers can intersect -- if this provider was created for the
+            purpose of running specific Identifiers, and within those Identifiers you want to
             batch, you can use both parameters.
         """
 
@@ -266,7 +267,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         """
         mapping = dict()
         for identifier in batch:
-            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID, Identifier.ONECLICK_ID]:
+            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID, Identifier.ONECLICK_ID, Identifier.ENKI_ID]:
                 for e in identifier.equivalencies:
                     if e.output.type == Identifier.ISBN:
                         mapping[e.output] = identifier
@@ -314,7 +315,7 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
 
     def process_feed_response(self, response, id_mapping):
         """Confirms OPDS feed response and extracts messages.
-        """        
+        """
         self.check_content_type(response)
         importer = OPDSImporter(self._db, identifier_mapping=id_mapping,
                                 data_source_name=self.output_source.name)
@@ -382,12 +383,12 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
         """Only identifiers associated with an open-access license
         need coverage.
 
-        :param identifiers: The batch of identifier objects to test for coverage. identifiers and 
-            self.input_identifiers can intersect -- if this provider was created for the 
-            purpose of running specific Identifiers, and within those Identifiers you want to 
+        :param identifiers: The batch of identifier objects to test for coverage. identifiers and
+            self.input_identifiers can intersect -- if this provider was created for the
+            purpose of running specific Identifiers, and within those Identifiers you want to
             batch, you can use both parameters.
         """
-        qu = super(ContentServerBibliographicCoverageProvider, 
+        qu = super(ContentServerBibliographicCoverageProvider,
                    self).items_that_need_coverage(identifiers, **kwargs)
         qu = qu.join(Identifier.licensed_through).filter(
             LicensePool.open_access==True
