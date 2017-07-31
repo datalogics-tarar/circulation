@@ -401,6 +401,7 @@ class BibliographicParser(object):
         formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
 
         circulationdata = CirculationData(
+            collection = Collection,
             data_source=DataSource.ENKI,
             primary_identifier=primary_identifier,
             formats=formats,
@@ -428,14 +429,15 @@ class BibliographicParser(object):
 class EnkiImport(CollectionMonitor):
     """Import Enki titles.
     """
-    SERVICE_NAME = "Enki Circulation Monitor"
+    SERVICE_NAME = "Enki Import"
     PROTOCOL = EnkiAPI.ENKI_DATASOURCE
     FIVE_MINUTES = datetime.timedelta(minutes=5)
     INTERVAL_SECONDS = 500
+    DEFAULT_BATCH_SIZE = 50
 
     def __init__(self, _db, collection, name="Enki Import", api_class=EnkiAPI):
 	super(EnkiImport, self).__init__(_db, collection)
-        self.batch_size = batch_size
+        self.batch_size = DEFUALT_BATCH_SIZE
         self.api = api_class(collection)
         self.analytics = Analytics(_db)
         self.bibliographic_coverage_provider = (
