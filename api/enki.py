@@ -494,21 +494,14 @@ class EnkiImport(CollectionMonitor):
 
 class EnkiCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left the Enki collection."""
-    def __init__(self, _db, api=None, interval_seconds=3600*4):
-        super(EnkiCollectionReaper, self).__init__(_db, "Enki Collection Reaper", interval_seconds)
-        self._db = _db
-        if not api:
-            api = EnkiAPI.from_environment(_db)
-        self.api = api
-        self.data_source = DataSource.lookup(self._db, DataSource.ENKI)
 
-    def run(self):
-        super(EnkiCollectionReaper, self).run()
+    SERVICE_NAME = "Overdrive Collection Reaper"
+    INTERVAL_SECONDS = 3600*4
 
-    def identifier_query(self):
-        return self._db.query(Identifier).filter(
-            Identifier.type==api.ENKI_ID)
+    def __init__(self, collection, api_class=EnkiAPI):
+        _db = Session.object_session(collection)
+        super(EnkiCollectionReaper, self).(_db, collection)
+        self.api = api_class(collection)
 
-    def process_batch(self, identifiers):
-        for identifier in identifiers:
+    def process_item(self, identifier):
             self.api.reaper_request(identifier.identifier)
