@@ -73,6 +73,7 @@ from core.monitor import (
 
 from core.opds_import import SimplifiedOPDSLookup
 from core.analytics import Analytics
+from core.testing import DatabaseTest
 
 #TODO: Remove unnecessary imports (once the classes are more or less complete)
 
@@ -117,7 +118,7 @@ class EnkiAPI(BaseCirculationAPI):
             )
         self.enki_bibliographic_coverage_provider = (
             EnkiBibliographicCoverageProvider(
-                _db, collection, api_class=self
+               collection, _db, api_class=self
             )
         )
 
@@ -262,18 +263,15 @@ class MockEnkiAPI(EnkiAPI):
         self.responses = []
         self.requests = []
 
-        library = Library.instance(_db)
-        collection, ignore = get_one_or_create(
-            _db, Collection,
-            name="Test Enki Collection",
-            protocol=Collection.ENKI, create_method_kwargs=dict(
-                external_account_id=u'c',
-            )
+        library = DatabaseTest.make_default_library(_db)
+        collection, ignore = Collection.by_name_and_protocol(
+            _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
         )
-        collection.external_integration.url = "http://enki.test/"
+        collection.protocol=EnkiAPI.ENKI
+        collection.external_account_id=u'c';
         library.collections.append(collection)
         super(MockEnkiAPI, self).__init__(
-            _db, collection, *args, **kwargs
+            collection, _db, *args, **kwargs
         )
 
     def queue_response(self, status_code, headers={}, content=None):
@@ -317,7 +315,7 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
     PROTOCOL = EnkiAPI.ENKI
     INPUT_IDENTIFIER_TYPES = EnkiAPI.ENKI_ID
 
-    def __init__(self, _db, collection, api_class=EnkiAPI, **kwargs):
+    def __init__(self, collection, api_class=EnkiAPI, **kwargs):
         """Constructor.
 
         :param collection: Provide bibliographic coverage to all
@@ -450,7 +448,7 @@ class EnkiImport(CollectionMonitor):
     """
     SERVICE_NAME = "Enki Circulation Monitor"
     INTERVAL_SECONDS = 500
-    PROTOCOL = EnkiAPI.ENKI_EXTERNAL
+    PROTOCOL = EnkiAPI.ENKI
     DEFAULT_BATCH_SIZE = 100 
     FIVE_MINUTES = datetime.timedelta(minutes=5)
     
@@ -460,7 +458,7 @@ class EnkiImport(CollectionMonitor):
         self.api = api_class(_db, collection)
         self.analytics = Analytics(_db)
         self.bibliographic_coverage_provider = (
-            EnkiBibliographicCoverageProvider(_db, collection, api_class=self.api)
+            EnkiBibliographicCoverageProvider(collection, _db, api_class=self.api)
         )
 
     def recently_changed_ids(self, start, cutoff):
@@ -526,7 +524,7 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
 
     SERVICE_NAME = "Enki Collection Reaper"
     INTERVAL_SECONDS = 3600*4
-    PROTOCOL = "Enki"
+    PROTOCOL = EnkiAPI.ENKI
 
     def __init__(self, _db, collection, api_class=EnkiAPI):
         self._db = _db
